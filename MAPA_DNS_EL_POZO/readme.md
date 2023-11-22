@@ -61,16 +61,16 @@ Esta captura contiene el Mapeo DNS de todo el dominio y sus uniones.
 
 Ahora con la herramienta Spiderfoot en kali se puede realizar un escaneo de la página para obtener correos de los empleados, y como resultado, conseguir los nombres y más información sobre ellos. Creo que obtener información de los trabajadores puede servirnos de gran ayuda en un caso de ingeniería social a través de phishing por correo, es por ello que cualquier tipo de utilidad añadida sobre nuestro objetivo conseguirá funcionalidad a la hora de atacar. He aquí 10 correos de ejemplo obtenidos a través del sondeo:
 
-ana.marin@elpozo.com
-antonio.avellaneda@elpozo.com
-antonio.hernandez@elpozo.com
-augusto.fuertes@elpozo.com
-blas.serrano@elpozo.com
-blasernesto.martinez@elpozo.com
-carlos.iniesta@elpozo.com
-cayo.ferron@elpozo.com
-chema.velasco@elpozo.com
-damiam.mesa@elpozo.com
+- ana.marin@elpozo.com
+- antonio.avellaneda@elpozo.com
+- antonio.hernandez@elpozo.com
+- augusto.fuertes@elpozo.com
+- blas.serrano@elpozo.com
+- blasernesto.martinez@elpozo.com
+- carlos.iniesta@elpozo.com
+- cayo.ferron@elpozo.com
+- chema.velasco@elpozo.com
+- damiam.mesa@elpozo.com
 
 
 ### Wappalyzer 
