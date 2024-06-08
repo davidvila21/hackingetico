@@ -17,6 +17,7 @@ Lo primero que queremos observar es, una vez en el formulario de autenticación 
 Como se puede apreciar arriba, este campo de “Usuario” es vulnerable a una inyección, y se puede provocar un error con solo las comillas (”) al principio, sin importar que otra sentencia lleve el campo, ya que este dará error igual, generando esta consulta: `Invalid query: SELECT userId, password FROM users WHERE username = "admin" OR 1=1". Field user introduced is: " OR 1=1` 
 
 | Escribo los valores                                 | " OR 1=1                                                      |
+| --------------------------------------------------- | ------------------------------------------------------- |
 | En el campo                                         | Usuario                                                    |
 | Del formulario de la página                         | http://192.168.1.138/insert_player.php#                    |
 | La consulta SQL que se ejecuta es                   | SELECT userId, password FROM users WHERE username = "admin" OR 1=1" |
@@ -31,24 +32,25 @@ En este caso utilizar fuerza bruta con el diccionario de contraseñas a la vez c
 
 ![6.png](img/6.png)
 
-```jsx
+
 | Explicación del ataque                             | Trata de un ataque que realiza múltiples intentos de acceso, en cada uno de los cuales se prueba una contraseña distinta del diccionario suministrado en la actividad. Con Hydra, se busca hacer coincidir un nombre de usuario de la lista que se posea, con cada contraseña del diccionario brindado.  |
+| --------------------------------------------------- | ------------------------------------------------------- |
 | Campo de usuario con que el ataque ha tenido éxito | luis                                                                                                                                                                                                                                                                                                  |
 | Campo contraseña con el que el ataque tiene éxito  | 1234                                                                                                                                                                                                                                                                                                                   |
 
-```
-
 #### c) Si vais a private/auth.php**,** veréis que en la función “areUserAndPasswordValid”, se utiliza “SQLite3::escapeString()”, pero, aun así, el formulario es vulnerable a SQL Injections, explicad cuál es el error de programación de esta función y como lo podéis corregir.
 
-| Explicación del error …                             |  El código es vulnerable a inyecciones SQL debido a la concatenación directa de la entrada del usuario en la consulta SQL. Aunque se usa **`SQLite3::escapeString()`**, no es suficiente para prevenir todas las inyecciones SQL.  |
-| Solución: Cambiar la línea con el código … |  `function areUserAndPasswordValid($user, $password) {
+**Explicación del error:** El código es vulnerable a inyecciones SQL debido a la concatenación directa de la entrada del usuario en la consulta SQL. Aunque se usa **"SQLite3::escapeString()"**, no es suficiente para prevenir todas las inyecciones SQL.
+
+Solución: Cambiar la línea con el código …   
+
+```php
+function areUserAndPasswordValid($user, $password) {
 	global $db, $userId;
 
     $query = SQLite3::escapeString('SELECT userId, password FROM users WHERE username = "' . $user . '"');
-
 	$result = $db->query($query) or die ("Invalid query: " . $query . ". Field user introduced is: " . $user);
 	$row = $result->fetchArray();
-
 	if ($password == $row['password'])
 	{
 		$userId = $row['userId'];
@@ -57,8 +59,13 @@ En este caso utilizar fuerza bruta con el diccionario de contraseñas a la vez c
 	}
 	else
 		return FALSE;
-}`  |
-| … por la siguiente línea …  |  `function areUserAndPasswordValid($user, $password) {
+  }
+```
+  
+ … Por la siguiente línea …    
+
+ ```php
+ function areUserAndPasswordValid($user, $password) {
 	global $db, $userId;
 
     $query = $db->prepare('SELECT userId, password FROM users WHERE username = :user');
@@ -75,7 +82,8 @@ En este caso utilizar fuerza bruta con el diccionario de contraseñas a la vez c
 	}
 	else
 		return FALSE;
-}`  |
+}
+```
 
 #### d) Si habéis tenido éxito con el apartado b)***,*** os habéis autenticado utilizando elusuario “luis” (si no habéis tenido éxito, podéis utilizar la contraseña “1234” para realizar este apartado). Con el objetivo de mejorar la imagen de la jugadora “Candela Pacheco”, le queremos escribir un buen puñado de comentarios positivos, pero no los queremos hacer todos con la misma cuenta de usuario.
 
@@ -84,57 +92,41 @@ En este caso utilizar fuerza bruta con el diccionario de contraseñas a la vez c
 #### Esto os permite estudiar el código fuente de “add_comment.php” y encontrar una vulnerabilidad para publicar mensajes en nombre de otros usuarios. ¿Cuál es esta vulnerabilidad, y cómo es el ataque que utilizáis para explotarla?
 
 | Vulnerabilidad detectada … |  Esta se encuentra en la forma en que se manejan los datos del usuario, sabiendo que el código utiliza directamente los valores de **`$_GET['id']`** y **`$_COOKIE['userId']`** en la consulta SQL sin ninguna validación o saneamiento adecuado, lo cual lleva a la posibilidad de un ataque de inyección SQL.  |
+| --------------------------------------------------- | ------------------------------------------------------- |
 | Descripción del ataque … |  Se puede manipular la cookie ‘userId’ en su navegador para hacerse pasar por otro usuario, ya que el código no verifica si el ‘userId’ de la cookie corresponde al usuario que actualmente está autenticado, lo cual permitiría a este publicar comentarios en nombre de otro usuario simplemente cambiándole el valor. Un ejemplo de ataque es este:<br>`document.cookie = "userId=ID_DEL_USUARIO_OBJETIVO";`<br>Una vez que esta cookie manipulada, se podrá comentar en el formulario a nombre del objetivo indicado, terminando publicado con su ID.|
-| ¿Cómo podemos hacer que sea segura esta entrada?  |  Se podría hacer un saneamiento de la entrada, limpiando los datos de entrada para evitar ataques de inyección SQL.
-
-He aquí un ejemplo de lo que habría que cambiar dentro del primer “if”:
-
-`$body = $db->escapeString($_POST['body']);
+| ¿Cómo podemos hacer que sea segura esta entrada?  |  Se podría hacer un saneamiento de la entrada, limpiando los datos de entrada para evitar ataques de inyección SQL. Aquí abajo un ejemplo de lo que habría que cambiar dentro del primer “if”:<br>
+```php
+$body = $db->escapeString($_POST['body']);
 $playerId = $db->escapeString($_GET['id']);
-$userId = $db->escapeString($_COOKIE['userId']);`  |
+$userId = $db->escapeString($_COOKIE['userId']);
+```
+
 
 ## Parte 2
 
 #### a) Para ver si hay un problema de XSS, crearemos un comentario que muestre un alert de Javascript siempre que alguien consulte el/los comentarios de aquel jugador (show_comments.php). Dad un mensaje que genere un «alert» de Javascript al consultar el listado de mensajes.
 
-| Introduzco el mensaje … | `<script>alert(”prueba-JS”)</script>`
-
-![Untitled](img/7.png)
-
-<br>Con el siguiente resultado al entrar en los comentarios de Jairo Valenzuela (con id=1): 
-
-![8.png](img/8.png)
-
- |
-
+| Introduzco el mensaje … | `<script>alert(”prueba-JS”)</script>` ![Untitled](img/7.png) <br>Con el siguiente resultado al entrar en los comentarios de Jairo Valenzuela (con id=1):  ![8.png](img/8.png) |
+ | --------------------------------------------------- | ------------------------------------------------------- |
 | En el formulario de la página … |  [http://192.168.1.140/web/add_comment.php?id=1](http://192.168.1.140/web/add_comment.php?id=1)  |
 
 #### b) Por qué dice "&" cuando miráis un link(como el que aparece a la portada de esta aplicación pidiendo que realices un donativo) con parámetros GET dentro de código HTML si en realidad el link es sólo con "&" ?
 
-| Explicación |  En el contexto de las URLs y los parámetros GET, el símbolo “&” se usa para separar los distintos parámetros en la consulta, teniendo en cuenta que en el link `http://www.donate.co/?amount=100&destination=ACMEScouting/`, hay dos parámetros: `amount` y `destination`, y están separados por `&`.
-
-Usar este símbolo puede causar confusión la gran mayoría de veces en HTML porque `&` también se utiliza para iniciar las propias entidades HTML (que son secuencias de caracteres que representan caracteres especiales). Para evitar confundirnos y asegurar que el HTML se renderice correctamente, el carácter `&` en las URLs se representa como `&amp;` dentro del código HTML.  | 
+| Explicación |  En el contexto de las URLs y los parámetros GET, el símbolo “&” se usa para separar los distintos parámetros en la consulta, teniendo en cuenta que en el link `http://www.donate.co/?amount=100&destination=ACMEScouting/`, hay dos parámetros: `amount` y `destination`, y están separados por `&`.<br>Usar este símbolo puede causar confusión la gran mayoría de veces en HTML porque `&` también se utiliza para iniciar las propias entidades HTML (que son secuencias de caracteres que representan caracteres especiales). Para evitar confundirnos y asegurar que el HTML se renderice correctamente, el carácter `&` en las URLs se representa como `&amp;` dentro del código HTML.  | 
+| --------------------------------------------------- | ------------------------------------------------------- |
 
 #### c) Explicad cuál es el problema de show_comments.php, y cómo lo arreglaríais. Para resolver este apartado, podéis mirar el código fuente de esta página.
 
 | ¿Cuál es el problema? |  La vulnerabilidad radica en cómo se utiliza directamente la entrada del usuario (**$_GET['id']**) en la consulta SQL, permitiendo que cualquier persona pueda manipular el parámetro 'id' en la URL y alterar la consulta en sí misma. Como resultado, esto podría conducir a la exposición de información sensible, alteración de datos o incluso a su eliminación. |
-
+| --------------------------------------------------- | ------------------------------------------------------- |
 | Sustituyo el código de la/las líneas … |  `$query = "SELECT commentId, username, body FROM comments C, users U WHERE C.playerId =".$_GET['id']." AND U.userId = C.userId order by C.playerId desc";`   Dentro de la primera sentencia “if” de la lista de commentarios.  |
-
-| … por el siguiente código … |  `$id = intval($_GET['id']);
-$query = "SELECT commentId, username, body FROM comments C, users U WHERE C.playerId = $id AND U.userId = C.userId order by C.playerId desc";`  De esta manera, si un atacante intenta pasar una cadena que contiene código SQL malicioso, la secuencia **`intval()`** lo convertirá a **`0`**, lo que hará que el ataque de inyección SQL sea ineficaz.  |
+| … por el siguiente código … |  `$id = intval($_GET['id']);$query = "SELECT commentId, username, body FROM comments C, users U WHERE C.playerId = $id AND U.userId = C.userId order by C.playerId desc";`  De esta manera, si un atacante intenta pasar una cadena que contiene código SQL malicioso, la secuencia **`intval()`** lo convertirá a **`0`**, lo que hará que el ataque de inyección SQL sea ineficaz.  |
 
 #### Descubrid si hay alguna otra página que esté afectada por esta misma vulnerabilidad. En caso positivo, explicad cómo lo habéis descubierto.
 
-| Otras páginas afectadas … |  Otra página en la que he encontrado el mismo problema que en el anterior código, es en “insert_player.php”, en el cual podemos insertar un script como el anterior utilizado, para mandar una alerta con el nombre “prueba-JS2”:<br>
-
-![9.png](img/9.png)
-
-![10.png](img/10.png)
-
-  |
-
-| ¿Cómo lo he descubierto? |  Probando el mismo script anterior y posteriormente mirando en el código de la página, en el cual se puede ver perfectamente el uso de la variable **`$_GET['id']`**  otra vez, en un query de las mismas características dentro de la sección de modificación o añadido de jugadores nuevos.  |
+| Otras páginas afectadas … |  Otra página en la que he encontrado el mismo problema que en el anterior código, es en “insert_player.php”, en el cual podemos insertar un script como el anterior utilizado, para mandar una alerta con el nombre “prueba-JS2”:<br>![9.png](img/9.png) ![10.png](img/10.png) |
+| --------------------------------------------------- | ------------------------------------------------------- |
+| ¿Cómo lo he descubierto? |  Probando el mismo script anterior y posteriormente mirando en el código de la página, en el cual se puede ver perfectamente el uso de la variable **"$_GET['id']"**  otra vez, en un query de las mismas características dentro de la sección de modificación o añadido de jugadores nuevos.  |
 
 ## Parte 3
 
@@ -266,7 +258,7 @@ if ($login_ok == FALSE) {
 
 Para restringir este acceso al registro de nuevos usuarios y asegurar que solo usuarios autorizados puedan registrar otros nuevos, se va implementar un s**istema de autenticación y autorización,** en el cual solo los usuarios con privilegios específicos (por ejemplo, administradores) deberían poder acceder a la página de registro, añadiendo un sistema de autenticación que verifique si el usuario está logueado y si tiene los privilegios necesarios para registrar nuevos usuarios y por último utilizando sesiones para gestionar el estado de autenticación del usuario.
 
-1. **Redirección de usuarios no autorizados**: Si un usuario no autorizado intenta acceder a la página de registro, debe ser redirigido a otra página, como la página de inicio de sesión o una página de error, esto verificando el estado de autenticación del usuario al inicio del script y redirigiéndolo si no tiene los privilegios necesarios.
+**Redirección de usuarios no autorizados**: Si un usuario no autorizado intenta acceder a la página de registro, debe ser redirigido a otra página, como la página de inicio de sesión o una página de error, esto verificando el estado de autenticación del usuario al inicio del script y redirigiéndolo si no tiene los privilegios necesarios.
 
 ```php
 session_start();
@@ -309,7 +301,7 @@ Por último también una revisión a los permisos de los archivos, para en caso 
 
 Se podría utilizar la función ”session_regenerate_id()” para regenerar el ID de sesión después de un cierto período de tiempo o después de ciertos eventos, como el inicio de sesión. Esto puede ayudar a prevenir ataques de secuestro de sesión. Este es lo que se le ha añadido al código:
 
-```
+```php
 <?php
 require_once dirname(__FILE__) . '/private/conf.php';
 session_start();
